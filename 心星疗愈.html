@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心星 · 疗愈</title>
+    
+    <!-- 1. 引入 Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 2. 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 3. 关键：引入 Marked 解析器 (解决星号问题) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- 4. 字体库 -->
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-deep: #121016; 
+            --text-main: #e8e0d5; 
+            --gold-primary: #ffecb3;
+            --gold-accent: #d4af37;
+            --highlight-bg: rgba(212, 175, 55, 0.15);
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Noto Serif SC', serif;
+        }
+
+        .font-logo { font-family: 'ZCOOL XiaoWei', serif; }
+
+        /* --- 背景动效 --- */
+        .ambient-mesh {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(circle at 15% 50%, rgba(80, 50, 60, 0.12), transparent 55%),
+                radial-gradient(circle at 85% 30%, rgba(60, 60, 90, 0.12), transparent 55%);
+            filter: blur(90px);
+            z-index: 0;
+            animation: breathe-bg 20s infinite alternate;
+        }
+        @keyframes breathe-bg { 0% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* --- 暖玉卡片 (容器) --- */
+        .jade-card {
+            background: linear-gradient(170deg, rgba(255,255,255,0.06) 0%, rgba(255,248,240,0.02) 100%);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 
+                0 30px 80px rgba(0, 0, 0, 0.5),
+                inset 0 0 60px rgba(255, 236, 179, 0.03);
+            border-radius: 24px;
+            pointer-events: auto;
+        }
+
+        /* 隐藏滚动条 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* =========================================
+           ✨ 核心修改：杂志级排版系统 (Markdown Styles)
+           ========================================= */
+        .markdown-content {
+            text-align: justify; /* 两端对齐 */
+            font-size: 1.05rem;  /* 字号微调 */
+            line-height: 2;      /* 宽松行高，阅读不累 */
+            color: #f0ebe5;
+            padding-bottom: 3rem;
+        }
+
+        /* 1. 重点高亮 (解决 **星号** 问题) */
+        /* 会被 marked.js 解析为 <strong> 标签 */
+        .markdown-content strong {
+            color: var(--gold-primary);
+            font-weight: 600;
+            background: var(--highlight-bg); /* 金色背景 */
+            padding: 2px 6px;
+            margin: 0 2px;
+            border-radius: 4px;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.15); /* 微弱发光 */
+        }
+
+        /* 2. 标题样式 (H1-H3) */
+        .markdown-content h1, 
+        .markdown-content h2, 
+        .markdown-content h3 {
+            font-family: 'ZCOOL XiaoWei', serif;
+            color: var(--gold-primary);
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            font-weight: normal;
+            border-left: 3px solid var(--gold-accent); /* 左侧装饰线 */
+            padding-left: 12px;
+            line-height: 1.4;
+        }
+        /* 第一个元素不需要顶部间距 */
+        .markdown-content > *:first-child { margin-top: 0; }
+
+        /* 3. 段落间距 */
+        .markdown-content p {
+            margin-bottom: 1.5rem;
+            opacity: 0.95;
+        }
+
+        /* 4. 引用块 (Blockquote) - 用于大师冷读/诗句 */
+        .markdown-content blockquote {
+            border-left: 2px solid rgba(255, 255, 255, 0.2);
+            padding: 1rem 1.5rem;
+            margin: 2rem 0;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* 5. 列表 (List) */
+        .markdown-content ul, .markdown-content ol {
+            margin-bottom: 1.5rem;
+            padding-left: 1.2rem;
+        }
+        .markdown-content li {
+            margin-bottom: 0.8rem;
+            position: relative;
+            padding-left: 0.5rem;
+        }
+        /* 列表项前面的点变成金色 */
+        .markdown-content ul { list-style-type: disc; }
+        .markdown-content ul li::marker { color: var(--gold-accent); }
+
+        /* 6. 分割线 */
+        .markdown-content hr {
+            border: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            margin: 2.5rem 0;
+        }
+
+        /* --- 其他组件 --- */
+        .firefly {
+            width: 12px; height: 12px;
+            background: radial-gradient(circle, #ffeebb 0%, rgba(255,200,100,0) 70%);
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(255, 200, 100, 0.5);
+            animation: float 6s infinite ease-in-out;
+            cursor: pointer;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); opacity: 0.8; }
+            50% { transform: translateY(-15px) scale(1.2); opacity: 1; }
+        }
+
+        .search-bar {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50px;
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .search-bar:focus-within {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 236, 179, 0.3);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            transform: translateY(-2px);
+        }
+
+        /* 动画 */
+        .fade-enter-active, .fade-leave-active { transition: all 0.8s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; transform: scale(0.95); }
+        
+        .card-enter-active { transition: all 1s cubic-bezier(0.16, 1, 0.3, 1); }
+        .card-leave-active { transition: all 0.6s ease; }
+        .card-enter-from, .card-leave-to { opacity: 0; transform: translateY(30px) scale(0.95); }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="relative w-screen h-screen flex flex-col items-center justify-center">
+        
+        <div class="ambient-mesh"></div>
+        <canvas id="particles" class="absolute inset-0 z-10 pointer-events-none"></canvas>
+
+        <div class="relative z-20 w-full h-full flex flex-col items-center justify-center">
+
+            <!-- 1. 首页：Logo + 搜索 -->
+            <transition name="fade">
+                <div v-if="!activeBubbleId" class="flex flex-col items-center w-full max-w-xl px-6 absolute z-30">
+                    
+                    <div class="text-center mb-12 select-none">
+                        <h1 class="font-logo text-7xl tracking-[0.25em] text-[#ffecb3] drop-shadow-2xl mb-4 opacity-90">
+                            心星
+                        </h1>
+                        <div class="flex items-center justify-center gap-3 text-white/30 text-xs tracking-[0.4em] font-light">
+                            <span class="w-8 h-px bg-white/20"></span>
+                            <span>疗 愈 智 能 体</span>
+                            <span class="w-8 h-px bg-white/20"></span>
+                        </div>
+                    </div>
+
+                    <div class="search-bar w-full flex items-center px-6 py-4 group">
+                        <div class="text-xl mr-4 opacity-40 group-focus-within:opacity-100 transition-opacity text-[#ffecb3]">✦</div>
+                        <input 
+                            v-model="input"
+                            @keydown.enter="sendMessage"
+                            :disabled="loading"
+                            type="text"
+                            class="flex-1 bg-transparent border-none outline-none text-lg text-[#f0e6d2] placeholder-white/10 font-light tracking-widest text-center"
+                            :placeholder="loading ? '正在链接星空...' : '在此刻，写下你的心事'"
+                            autofocus
+                        >
+                        <button 
+                            @click="sendMessage"
+                            :disabled="loading || !input.trim()"
+                            class="ml-4 p-2 rounded-full hover:bg-white/5 transition-colors opacity-40 hover:opacity-100 disabled:opacity-10"
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </transition>
+
+            <!-- 2. 漂浮的历史 (萤火虫) -->
+            <div v-for="bubble in bubbles" :key="bubble.id">
+                <div v-if="bubble.id !== activeBubbleId"
+                     class="absolute transition-all duration-[2500ms] ease-out cursor-pointer group hover:scale-150"
+                     :style="{ left: bubble.x + 'px', top: bubble.y + 'px', zIndex: 10 }"
+                     @click="restoreBubble(bubble.id)">
+                    
+                    <div class="firefly"></div>
+                    <!-- 悬停微光 -->
+                    <div class="absolute inset-0 bg-white/20 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </div>
+            </div>
+
+            <!-- 3. 回答卡片 (使用 v-html + marked 渲染) -->
+            <transition name="card">
+                <div v-if="activeBubbleId" class="absolute inset-0 flex items-center justify-center z-50 p-4 md:p-8">
+                    
+                    <div class="jade-card w-full max-w-[700px] h-[80vh] flex flex-col relative overflow-hidden select-text"
+                         @click="handleSingleClick(activeBubbleId)"
+                         @dblclick="handleDoubleClick(activeBubbleId, $event)">
+                        
+                        <!-- 顶部装饰光 -->
+                        <div class="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-[#ffecb3]/5 to-transparent pointer-events-none"></div>
+
+                        <!-- 内容滚动区 -->
+                        <div class="flex-1 overflow-y-auto no-scrollbar p-8 md:p-12 relative z-10">
+                            
+                            <!-- 提问回顾 -->
+                            <div class="mb-10 text-center opacity-40 select-none">
+                                <span class="text-xs font-serif border-b border-white/10 pb-2 tracking-[0.2em]">
+                                    问 · {{ getActiveBubble().query }}
+                                </span>
+                            </div>
+
+                            <!-- 正文渲染：使用 v-html 和 renderMarkdown -->
+                            <div class="markdown-content" v-html="renderMarkdown(getActiveBubble().displayContent)"></div>
+                            
+                            <!-- 底部留白 -->
+                            <div class="h-16"></div>
+                        </div>
+
+                        <!-- 底部交互提示 (绝对定位) -->
+                        <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-[#121016]/90 to-transparent pointer-events-none flex items-end justify-center pb-6">
+                            <div class="flex flex-col items-center gap-1 text-[10px] tracking-[0.3em] text-[#ffecb3]/60 uppercase font-sans">
+                                <span>单击任意处 · 暂时封存</span>
+                                <span class="font-bold opacity-80">双击卡片 · 释怀消散</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </transition>
+
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                // ================= 配置区 =================
+                const CONFIG = {
+                    BOT_ID: '7587068120876630062',
+                    TOKEN: 'pat_WwcklDazU2TvoqgYIhtlu2L41kevZQyE7hHJ5s1Mk9w4gBs0VMvhk0bTkIhL7LTK' 
+                };
+                // =========================================
+
+                const input = ref("");
+                const loading = ref(false);
+                const bubbles = ref([]);
+                const activeBubbleId = ref(null);
+                let ctx, particles = [];
+                let clickTimer = null;
+
+                // 核心：Markdown 渲染器配置
+                const renderMarkdown = (content) => {
+                    if (!content) return '';
+                    // 使用 marked 解析 Markdown 为 HTML
+                    // 这样 **text** 就会变成 <strong>text</strong>
+                    // 然后被我们的 CSS 样式捕获
+                    return marked.parse(content);
+                };
+
+                const initParticles = () => {
+                    const canvas = document.getElementById('particles');
+                    ctx = canvas.getContext('2d');
+                    const resize = () => {
+                        canvas.width = window.innerWidth;
+                        canvas.height = window.innerHeight;
+                    };
+                    window.addEventListener('resize', resize);
+                    resize();
+                    const loop = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        for(let i=particles.length-1; i>=0; i--) {
+                            const p = particles[i];
+                            p.y -= p.speed; 
+                            p.alpha -= 0.015; 
+                            p.size *= 0.97; 
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                            ctx.fillStyle = `rgba(255, 236, 179, ${p.alpha})`;
+                            ctx.fill();
+                            if(p.alpha <= 0) particles.splice(i, 1);
+                        }
+                        requestAnimationFrame(loop);
+                    };
+                    loop();
+                };
+
+                const spawnReleaseEffect = (rect) => {
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    for(let i=0; i<80; i++) {
+                        particles.push({
+                            x: centerX + (Math.random()-0.5)*rect.width*0.6,
+                            y: centerY + (Math.random()-0.5)*rect.height*0.6,
+                            size: Math.random()*3+1,
+                            speed: Math.random()*2+1,
+                            alpha: 1
+                        });
+                    }
+                };
+
+                const sendMessage = async () => {
+                    if (!input.value.trim() || loading.value) return;
+                    loading.value = true;
+                    const query = input.value;
+                    input.value = "";
+
+                    try {
+                        const res = await fetch('https://api.coze.cn/open_api/v2/chat', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${CONFIG.TOKEN}`,
+                                'Content-Type': 'application/json',
+                                'Accept': '*/*',
+                            },
+                            body: JSON.stringify({
+                                conversation_id: "uid_" + Date.now(),
+                                bot_id: CONFIG.BOT_ID,
+                                user: "seeker",
+                                query: query,
+                                stream: false
+                            })
+                        });
+
+                        const data = await res.json();
+                        let content = "星辰静默，请稍后再试...";
+                        if (data.messages) {
+                            const answer = data.messages.find(m => m.type === 'answer');
+                            if (answer) content = answer.content;
+                        }
+
+                        const newId = Date.now();
+                        const newBubble = {
+                            id: newId,
+                            query: query,
+                            displayContent: content, 
+                            x: Math.random() * (window.innerWidth - 100) + 50,
+                            y: Math.random() * (window.innerHeight - 100) + 50
+                        };
+                        bubbles.value.push(newBubble);
+                        activeBubbleId.value = newId;
+
+                    } catch (e) {
+                        console.error(e);
+                        alert("请安装CORS插件以连接宇宙。");
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const handleSingleClick = (id) => {
+                    // 如果有选中文本，不视为点击关闭
+                    const selection = window.getSelection();
+                    if (selection.toString().length > 0) return;
+
+                    if (clickTimer) clearTimeout(clickTimer);
+                    clickTimer = setTimeout(() => {
+                        if(activeBubbleId.value === id) {
+                            activeBubbleId.value = null; 
+                            const b = bubbles.value.find(i => i.id === id);
+                            if(b) {
+                                b.x = Math.random() * (window.innerWidth - 100) + 50;
+                                b.y = Math.random() * (window.innerHeight - 100) + 50;
+                            }
+                        }
+                        clickTimer = null;
+                    }, 250);
+                };
+
+                const handleDoubleClick = (id, event) => {
+                    if (clickTimer) clearTimeout(clickTimer);
+                    clickTimer = null;
+                    
+                    activeBubbleId.value = null; 
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    spawnReleaseEffect(rect);
+                    setTimeout(() => {
+                        bubbles.value = bubbles.value.filter(b => b.id !== id);
+                    }, 150);
+                };
+
+                const restoreBubble = (id) => { activeBubbleId.value = id; };
+                const getActiveBubble = () => { return bubbles.value.find(b => b.id === activeBubbleId.value) || {}; };
+
+                setInterval(() => {
+                    bubbles.value.forEach(b => {
+                        if(b.id !== activeBubbleId.value) {
+                            b.x += (Math.random()-0.5)*0.3;
+                            b.y += (Math.random()-0.5)*0.3;
+                        }
+                    });
+                }, 50);
+
+                onMounted(() => { initParticles(); });
+
+                return {
+                    input, loading, bubbles, activeBubbleId,
+                    sendMessage, handleSingleClick, handleDoubleClick, restoreBubble, getActiveBubble, renderMarkdown
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
